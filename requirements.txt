@@ -1,0 +1,4 @@
+numpy
+opencv-python
+# Optional but recommended for detection
+ultralytics
