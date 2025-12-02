@@ -6,18 +6,20 @@ from typing import Optional
 @dataclass
 class CameraConfig:
     device_index: int = 0
-    width: int = 640
-    height: int = 480
+    width: int = 1920  # 720p width
+    height: int = 1080  # 720p height
     fps: int = 15
 
 
 @dataclass
 class DetectorConfig:
-    model_path: Optional[Path] = None  # e.g., Path("yolo11n.pt") or ONNX path
+    # Default to face-trained weights under Yolo_face_recognition_trained_50
+    model_path: Optional[Path] = Path("Yolo_face_recognition_trained_50/yolo11n.pt")
     confidence: float = 0.35
-    person_class_id: int = 0
+    person_class_id: int = 0  # face class id in the custom model
     half_precision: bool = True
     max_det: int = 5
+    imgsz: int = 480  # reduce input size for faster inference
 
 
 @dataclass

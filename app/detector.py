@@ -29,12 +29,14 @@ class YOLODetector:
         conf: float = 0.35,
         max_det: int = 5,
         half: bool = True,
+        imgsz: int = 480,
     ):
         self.person_class_id = person_class_id
         self.conf = conf
         self.max_det = max_det
         self.half = half
         self.model_path = model_path or "yolo11n.pt"
+        self.imgsz = imgsz
         self.model = None
         self._load()
 
@@ -59,6 +61,7 @@ class YOLODetector:
             conf=self.conf,
             half=self.half,
             max_det=self.max_det,
+            imgsz=self.imgsz,
         )
         dets: List[Detection] = []
         for r in results:

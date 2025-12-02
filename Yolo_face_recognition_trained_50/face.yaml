@@ -1,0 +1,6 @@
+train: images/train
+val: images/val
+test: images/val
+
+nc: 1
+names: [face]
