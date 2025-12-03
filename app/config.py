@@ -1,25 +1,19 @@
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
 
 
 @dataclass
 class CameraConfig:
     device_index: int = 0
-    width: int = 1920  # 720p width
-    height: int = 1080  # 720p height
-    fps: int = 15
+    width: int = 640  # lower for Pi 4B
+    height: int = 480
+    fps: int = 12
 
 
 @dataclass
 class DetectorConfig:
-    # Default to face-trained weights under Yolo_face_recognition_trained_50
-    model_path: Optional[Path] = Path("Yolo_face_recognition_trained_50/yolo11n.pt")
-    confidence: float = 0.35
-    person_class_id: int = 0  # face class id in the custom model
-    half_precision: bool = True
-    max_det: int = 5
-    imgsz: int = 480  # reduce input size for faster inference
+    model: str = "hog"  # "hog" (CPU) or "cnn" (GPU/NEON)
+    upsample: int = 0   # 0 for speed on Pi
+    resize_width: int = 320  # downscale before detection for speed
 
 
 @dataclass

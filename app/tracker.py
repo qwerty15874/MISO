@@ -10,7 +10,7 @@ import numpy as np
 from .camera import Camera
 from .config import AppConfig
 from .controller import MotorController
-from .detector import YOLODetector
+from .detector import FaceRecognitionDetector
 from .light import LightController
 from .motor_driver import TB6600Driver
 
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 class TrackerApp:
-    """Minimal camera → YOLO → motor + light tracking loop."""
+    """Minimal camera -> face_recognition detector -> motor + light tracking loop."""
 
     def __init__(self, cfg: AppConfig):
         self.cfg = cfg
@@ -28,12 +28,10 @@ class TrackerApp:
             height=cfg.camera.height,
             fps=cfg.camera.fps,
         )
-        self.detector = YOLODetector(
-            model_path=str(cfg.detector.model_path) if cfg.detector.model_path else None,
-            person_class_id=cfg.detector.person_class_id,
-            conf=cfg.detector.confidence,
-            max_det=cfg.detector.max_det,
-            half=cfg.detector.half_precision,
+        self.detector = FaceRecognitionDetector(
+            model=cfg.detector.model,
+            upsample=cfg.detector.upsample,
+            resize_width=cfg.detector.resize_width,
         )
         self.motor_driver = TB6600Driver()
         self.controller = MotorController(cfg.control, self.motor_driver)
@@ -52,9 +50,6 @@ class TrackerApp:
         self._running = False
 
     def _pick_person(self, dets):
-        if not dets:
-            return None
-        dets = [d for d in dets if d.cls == self.cfg.detector.person_class_id]
         if not dets:
             return None
         return max(dets, key=lambda d: (d.bbox[2] - d.bbox[0]) * (d.bbox[3] - d.bbox[1]))
@@ -93,7 +88,7 @@ class TrackerApp:
                 self._light_on = True
                 self._last_steps = steps
                 log.info(
-                    "Person conf=%.2f bbox=%s error_px=%.1f steps=%d",
+                    "Face conf=%.2f bbox=%s error_px=%.1f steps=%d",
                     person.conf,
                     tuple(round(v, 1) for v in person.bbox),
                     error_px,
