@@ -1,7 +1,8 @@
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
+import cv2
 import numpy as np
 
 log = logging.getLogger(__name__)
@@ -19,59 +20,55 @@ class Detection:
         return (x1 + x2) / 2, (y1 + y2) / 2
 
 
-class YOLODetector:
-    """Ultralytics YOLO11n loader. If unavailable, returns empty detections."""
+class FaceRecognitionDetector:
+    """
+    Face detector backed by https://github.com/ageitgey/face_recognition.
+    If the dependency is missing, detection becomes a no-op.
+    """
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
-        person_class_id: int = 0,
-        conf: float = 0.35,
-        max_det: int = 5,
-        half: bool = True,
-        imgsz: int = 480,
+        model: str = "hog",
+        upsample: int = 1,
+        resize_width: int = 320,
     ):
-        self.person_class_id = person_class_id
-        self.conf = conf
-        self.max_det = max_det
-        self.half = half
-        self.model_path = model_path or "yolo11n.pt"
-        self.imgsz = imgsz
-        self.model = None
-        self._load()
+        self.model = model
+        self.upsample = upsample
+        self.resize_width = resize_width
+        self._face_recognition = self._load()
 
-    def _load(self) -> None:
+    def _load(self):
         try:
-            from ultralytics import YOLO  # type: ignore
+            import face_recognition  # type: ignore
         except Exception as exc:  # pragma: no cover
-            log.warning("Ultralytics not available: %s. Detector will be dummy.", exc)
-            self.model = None
-            return
+            log.warning("face_recognition not available: %s. Detector will be dummy.", exc)
+            return None
 
-        log.info("Loading YOLO model from %s", self.model_path)
-        self.model = YOLO(self.model_path)
+        return face_recognition
 
     def __call__(self, frame: np.ndarray) -> List[Detection]:
-        if self.model is None:
+        if self._face_recognition is None:
             return []
 
-        results = self.model(
-            frame,
-            verbose=False,
-            conf=self.conf,
-            half=self.half,
-            max_det=self.max_det,
-            imgsz=self.imgsz,
+        # Optionally downscale to reduce load on Pi-class CPUs
+        scale = 1.0
+        frame_in = frame
+        if self.resize_width and frame.shape[1] > self.resize_width:
+            scale = self.resize_width / frame.shape[1]
+            new_h = max(1, int(frame.shape[0] * scale))
+            frame_in = cv2.resize(frame, (self.resize_width, new_h))
+
+        # face_recognition expects RGB images
+        rgb = frame_in[:, :, ::-1]
+        boxes = self._face_recognition.face_locations(
+            rgb, number_of_times_to_upsample=self.upsample, model=self.model
         )
         dets: List[Detection] = []
-        for r in results:
-            for box in r.boxes:
-                cls_id = int(box.cls[0].item())
-                if cls_id != self.person_class_id:
-                    continue
-                conf = float(box.conf[0].item())
-                if conf < self.conf:
-                    continue
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                dets.append(Detection((x1, y1, x2, y2), conf, cls_id))
+        for top, right, bottom, left in boxes:
+            if scale != 1.0:
+                top /= scale
+                right /= scale
+                bottom /= scale
+                left /= scale
+            dets.append(Detection((left, top, right, bottom), conf=1.0, cls=0))
         return dets

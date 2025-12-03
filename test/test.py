@@ -1,6 +1,5 @@
 """
 Entry point for the app-based face tracker.
-- Defaults to the face model at Yolo_face_recognition_trained_50/yolo11n.pt.
 - Uses app/ modules (camera, detector, controller, motor, light).
 """
 
@@ -23,10 +22,16 @@ def parse_args():
     p.add_argument("--width", type=int, default=None, help="Camera width (override config)")
     p.add_argument("--height", type=int, default=None, help="Camera height (override config)")
     p.add_argument("--fps", type=int, default=None, help="Camera FPS (override config)")
-    p.add_argument("--model-path", type=str, default=None, help="Path to YOLO model (pt/onnx). Overrides config.")
-    p.add_argument("--conf", type=float, default=None, help="Detection confidence threshold (override config).")
+    p.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        choices=["hog", "cnn"],
+        help="face_recognition model backend (hog=CPU, cnn=GPU/NEON). Overrides config.",
+    )
+    p.add_argument("--upsample", type=int, default=None, help="Number of upsampling passes for detection.")
+    p.add_argument("--det-resize-width", type=int, default=None, help="Resize frame width before detection for speed.")
     p.add_argument("--timeout", type=float, default=None, help="Seconds until light off/home when no face (override config).")
-    p.add_argument("--imgsz", type=int, default=None, help="Inference input size (override config).")
     return p.parse_args()
 
 
@@ -40,14 +45,14 @@ def build_config(args) -> AppConfig:
         cfg.camera.height = args.height
     if args.fps is not None:
         cfg.camera.fps = args.fps
-    if args.conf is not None:
-        cfg.detector.confidence = args.conf
+    if args.model is not None:
+        cfg.detector.model = args.model
+    if args.upsample is not None:
+        cfg.detector.upsample = args.upsample
+    if args.det_resize_width is not None:
+        cfg.detector.resize_width = args.det_resize_width
     if args.timeout is not None:
         cfg.control.timeout_no_person_s = args.timeout
-    if args.imgsz is not None:
-        cfg.detector.imgsz = args.imgsz
-    if args.model_path:
-        cfg.detector.model_path = Path(args.model_path)
     return cfg
 
 
