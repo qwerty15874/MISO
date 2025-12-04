@@ -32,6 +32,10 @@ class TrackerApp:
             model=cfg.detector.model,
             upsample=cfg.detector.upsample,
             resize_width=cfg.detector.resize_width,
+            use_fallback=cfg.detector.use_fallback,
+            fallback_model=cfg.detector.fallback_model,
+            fallback_upsample=cfg.detector.fallback_upsample,
+            fallback_resize_width=cfg.detector.fallback_resize_width,
         )
         self.motor_driver = TB6600Driver()
         self.controller = MotorController(cfg.control, self.motor_driver)
@@ -75,6 +79,7 @@ class TrackerApp:
             frame_center = (frame.shape[1] // 2, frame.shape[0] // 2)
             error_px = None
             steps = 0
+            idle_time = time.time() - last_seen
 
             if person:
                 now = time.time()
@@ -110,10 +115,15 @@ class TrackerApp:
                     cv2.LINE_AA,
                 )
             else:
-                if time.time() - last_seen > self.cfg.control.timeout_no_person_s:
+                # Hold last pose and keep light on until timeout; then home and power off.
+                if idle_time > self.cfg.control.timeout_no_person_s:
                     self.light.off()
                     self._light_on = False
-                self.controller.home()
+                    self.controller.home()
+                else:
+                    if not self._light_on:
+                        self.light.on()
+                        self._light_on = True
 
             self._show(frame, status=self._status_text(person, error_px, steps, frame_center))
 

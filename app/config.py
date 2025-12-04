@@ -4,28 +4,32 @@ from dataclasses import dataclass, field
 @dataclass
 class CameraConfig:
     device_index: int = 0
-    width: int = 640  # lower for Pi 4B
-    height: int = 480
-    fps: int = 12
+    width: int = 560  # lower res for faster real-time detection
+    height: int = 360
+    fps: int = 24  # balance latency vs CPU load on Pi 4B
 
 
 @dataclass
 class DetectorConfig:
     model: str = "hog"  # "hog" (CPU) or "cnn" (GPU/NEON)
-    upsample: int = 0   # 0 for speed on Pi
-    resize_width: int = 320  # downscale before detection for speed
+    upsample: int = 1   # no upsample for speed; better latency for real-time
+    resize_width: int = 240  # more aggressive downscale for throughput
+    use_fallback: bool = False  # disable slow second pass for steady FPS
+    fallback_model: str = "hog"
+    fallback_upsample: int = 1
+    fallback_resize_width: int = 480  # optional if fallback is manually enabled
 
 
 @dataclass
 class ControlConfig:
-    kp: float = 0.4
-    kd: float = 0.05
-    deadband_px: int = 10
+    kp: float = 0.6          # faster response for rapid motion
+    kd: float = 0.08         # a touch more damping to avoid overshoot
+    deadband_px: int = 6     # react sooner to movement
     camera_hfov_deg: float = 50.0  # adjust to your lens HFOV
     steps_per_rev: int = 200
     microstep: int = 8  # TB6600 DIP setting
     gear_ratio: float = 1.0
-    max_speed_sps: int = 2000  # steps per second
+    max_speed_sps: int = 2800  # allow faster slews; reduce if motor skips
     accel_sps2: int = 4000  # steps per second^2 (not yet used)
     home_position_steps: int = 0
     timeout_no_person_s: float = 4.0

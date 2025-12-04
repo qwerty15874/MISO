@@ -31,10 +31,18 @@ class FaceRecognitionDetector:
         model: str = "hog",
         upsample: int = 1,
         resize_width: int = 320,
+        use_fallback: bool = True,
+        fallback_model: str = "cnn",
+        fallback_upsample: int = 2,
+        fallback_resize_width: int = 0,
     ):
         self.model = model
         self.upsample = upsample
         self.resize_width = resize_width
+        self.use_fallback = use_fallback
+        self.fallback_model = fallback_model
+        self.fallback_upsample = fallback_upsample
+        self.fallback_resize_width = fallback_resize_width
         self._face_recognition = self._load()
 
     def _load(self):
@@ -50,18 +58,32 @@ class FaceRecognitionDetector:
         if self._face_recognition is None:
             return []
 
-        # Optionally downscale to reduce load on Pi-class CPUs
+        dets = self._detect(frame, model=self.model, upsample=self.upsample, resize_width=self.resize_width)
+
+        # If nothing was found, try a slower but more accurate pass (e.g., CNN, no downscale)
+        if not dets and self.use_fallback:
+            dets = self._detect(
+                frame,
+                model=self.fallback_model,
+                upsample=self.fallback_upsample,
+                resize_width=self.fallback_resize_width if self.fallback_resize_width > 0 else 0,
+            )
+
+        return dets
+
+    def _detect(self, frame: np.ndarray, model: str, upsample: int, resize_width: int) -> List[Detection]:
+        # Optionally downscale to reduce load on Pi-class CPUs. resize_width==0 means full-res.
         scale = 1.0
         frame_in = frame
-        if self.resize_width and frame.shape[1] > self.resize_width:
-            scale = self.resize_width / frame.shape[1]
+        if resize_width and frame.shape[1] > resize_width:
+            scale = resize_width / frame.shape[1]
             new_h = max(1, int(frame.shape[0] * scale))
-            frame_in = cv2.resize(frame, (self.resize_width, new_h))
+            frame_in = cv2.resize(frame, (resize_width, new_h))
 
         # face_recognition expects RGB images
         rgb = np.ascontiguousarray(frame_in[:, :, ::-1])
         boxes = self._face_recognition.face_locations(
-            rgb, number_of_times_to_upsample=self.upsample, model=self.model
+            rgb, number_of_times_to_upsample=upsample, model=model
         )
         dets: List[Detection] = []
         for top, right, bottom, left in boxes:
