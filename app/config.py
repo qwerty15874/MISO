@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -38,7 +38,7 @@ class LightConfig:
 
 @dataclass
 class AppConfig:
-    camera: CameraConfig = CameraConfig()
-    detector: DetectorConfig = DetectorConfig()
-    control: ControlConfig = ControlConfig()
-    light: LightConfig = LightConfig()
+    camera: CameraConfig = field(default_factory=CameraConfig)
+    detector: DetectorConfig = field(default_factory=DetectorConfig)
+    control: ControlConfig = field(default_factory=ControlConfig)
+    light: LightConfig = field(default_factory=LightConfig)

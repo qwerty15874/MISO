@@ -59,7 +59,7 @@ class FaceRecognitionDetector:
             frame_in = cv2.resize(frame, (self.resize_width, new_h))
 
         # face_recognition expects RGB images
-        rgb = frame_in[:, :, ::-1]
+        rgb = np.ascontiguousarray(frame_in[:, :, ::-1])
         boxes = self._face_recognition.face_locations(
             rgb, number_of_times_to_upsample=self.upsample, model=self.model
         )
