@@ -1,50 +1,38 @@
 import logging
 import signal
 import time
-from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Optional
+from typing import List
 
 import cv2
 import numpy as np
 
-from .camera import Camera
 from .config import AppConfig
 from .controller import MotorController
-from .detector import FaceRecognitionDetector
 from .light import LightController
 from .motor_driver import TB6600Driver
+from .openmv_client import OpenMVCamera
 
 log = logging.getLogger(__name__)
 
 
 class TrackerApp:
-    """Minimal camera -> face_recognition detector -> motor + light tracking loop."""
+    """Camera frames + face detections from OpenMV -> motor + light tracking loop."""
 
     def __init__(self, cfg: AppConfig):
         self.cfg = cfg
-        self.camera = Camera(
-            device_index=cfg.camera.device_index,
-            width=cfg.camera.width,
-            height=cfg.camera.height,
-            fps=cfg.camera.fps,
-        )
-        self.detector = FaceRecognitionDetector(
-            model=cfg.detector.model,
-            upsample=cfg.detector.upsample,
-            resize_width=cfg.detector.resize_width,
-            use_fallback=cfg.detector.use_fallback,
-            fallback_model=cfg.detector.fallback_model,
-            fallback_upsample=cfg.detector.fallback_upsample,
-            fallback_resize_width=cfg.detector.fallback_resize_width,
+        self.camera = OpenMVCamera(
+            port=cfg.openmv.port or None,
+            baudrate=cfg.openmv.baudrate,
+            framesize=cfg.openmv.framesize,
+            threshold=cfg.openmv.threshold,
+            scale=cfg.openmv.scale,
+            timeout=cfg.openmv.timeout,
         )
         self.motor_driver = TB6600Driver()
         self.controller = MotorController(cfg.control, self.motor_driver)
         self.light = LightController(cfg.light.relay_pin)
         self._last_steps = 0
         self._light_on = False
-        self._executor = ThreadPoolExecutor(max_workers=1)
-        self._pending: Optional[Future] = None
-        self._latest_dets = []
         self._running = True
         signal.signal(signal.SIGINT, self._stop)
         signal.signal(signal.SIGTERM, self._stop)
@@ -68,12 +56,7 @@ class TrackerApp:
             if frame_data is None:
                 time.sleep(0.05)
                 continue
-
-            _, frame = frame_data
-            # Async detection: fetch completed results, then submit the latest frame if idle.
-            self._collect_future()
-            self._submit_future(frame)
-            dets = self._latest_dets
+            _, frame, dets = frame_data
             person = self._pick_person(dets)
             frame_center_x = frame.shape[1] / 2
             frame_center = (frame.shape[1] // 2, frame.shape[0] // 2)
@@ -135,7 +118,6 @@ class TrackerApp:
 
         self.controller.shutdown()
         self.camera.release()
-        self._executor.shutdown(wait=False)
 
     def _status_text(self, person, error_px, steps, frame_center):
         if person:
@@ -169,21 +151,6 @@ class TrackerApp:
                 self._stop()
         except cv2.error:
             pass
-
-    def _submit_future(self, frame):
-        if self._pending is None:
-            # Copy to avoid race with UI drawing
-            self._pending = self._executor.submit(self.detector, frame.copy())
-
-    def _collect_future(self):
-        if self._pending is not None and self._pending.done():
-            try:
-                self._latest_dets = self._pending.result()
-            except Exception as exc:
-                log.warning("Detector future failed: %s", exc)
-                self._latest_dets = []
-            finally:
-                self._pending = None
 
 
 def main():

@@ -1,4 +1,5 @@
 numpy
 opencv-python
-# Face detection backend
-face-recognition
+# OpenMV host comms
+pyserial
+Pillow

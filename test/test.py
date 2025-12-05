@@ -1,6 +1,5 @@
 """
-Entry point for the app-based face tracker.
-- Uses app/ modules (camera, detector, controller, motor, light).
+Entry point for the OpenMV-based face tracker (controller, motor, light on the host).
 """
 
 import argparse
@@ -22,16 +21,12 @@ def parse_args():
     p.add_argument("--width", type=int, default=None, help="Camera width (override config)")
     p.add_argument("--height", type=int, default=None, help="Camera height (override config)")
     p.add_argument("--fps", type=int, default=None, help="Camera FPS (override config)")
-    p.add_argument(
-        "--model",
-        type=str,
-        default=None,
-        choices=["hog", "cnn"],
-        help="face_recognition model backend (hog=CPU, cnn=GPU/NEON). Overrides config.",
-    )
-    p.add_argument("--upsample", type=int, default=None, help="Number of upsampling passes for detection.")
-    p.add_argument("--det-resize-width", type=int, default=None, help="Resize frame width before detection for speed.")
     p.add_argument("--timeout", type=float, default=None, help="Seconds until light off/home when no face (override config).")
+    p.add_argument("--openmv", action="store_true", help="Use OpenMV for camera + face detection (default).")
+    p.add_argument("--openmv-port", type=str, default=None, help="Serial port for OpenMV (auto-detect if omitted).")
+    p.add_argument("--openmv-framesize", type=str, default=None, help="OpenMV framesize (e.g., QVGA, VGA).")
+    p.add_argument("--openmv-threshold", type=float, default=None, help="Haar cascade threshold on OpenMV.")
+    p.add_argument("--openmv-scale", type=float, default=None, help="Haar cascade scale on OpenMV.")
     return p.parse_args()
 
 
@@ -45,14 +40,18 @@ def build_config(args) -> AppConfig:
         cfg.camera.height = args.height
     if args.fps is not None:
         cfg.camera.fps = args.fps
-    if args.model is not None:
-        cfg.detector.model = args.model
-    if args.upsample is not None:
-        cfg.detector.upsample = args.upsample
-    if args.det_resize_width is not None:
-        cfg.detector.resize_width = args.det_resize_width
     if args.timeout is not None:
         cfg.control.timeout_no_person_s = args.timeout
+    if args.openmv:
+        cfg.openmv.enabled = True
+    if args.openmv_port is not None:
+        cfg.openmv.port = args.openmv_port
+    if args.openmv_framesize is not None:
+        cfg.openmv.framesize = args.openmv_framesize
+    if args.openmv_threshold is not None:
+        cfg.openmv.threshold = args.openmv_threshold
+    if args.openmv_scale is not None:
+        cfg.openmv.scale = args.openmv_scale
     return cfg
 
 

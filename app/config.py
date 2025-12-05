@@ -18,6 +18,8 @@ class DetectorConfig:
     fallback_model: str = "hog"
     fallback_upsample: int = 1
     fallback_resize_width: int = 480  # optional if fallback is manually enabled
+    max_detector_latency_s: float = 0.35  # drop stale detection jobs
+    max_pending_futures: int = 2  # keep only a small queue of detector jobs
 
 
 @dataclass
@@ -41,8 +43,20 @@ class LightConfig:
 
 
 @dataclass
+class OpenMVConfig:
+    enabled: bool = True
+    port: str = ""  # auto-discover if empty
+    baudrate: int = 921600
+    framesize: str = "QVGA"
+    threshold: float = 0.7
+    scale: float = 1.35
+    timeout: float = 0.3
+
+
+@dataclass
 class AppConfig:
     camera: CameraConfig = field(default_factory=CameraConfig)
     detector: DetectorConfig = field(default_factory=DetectorConfig)
     control: ControlConfig = field(default_factory=ControlConfig)
     light: LightConfig = field(default_factory=LightConfig)
+    openmv: OpenMVConfig = field(default_factory=OpenMVConfig)
